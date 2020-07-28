@@ -120,9 +120,16 @@ const CaptureUserNameHandler = {
         
         sessionAttributes.name = userName;
         attributesManager.setPersistentAttributes(sessionAttributes);
-        await attributesManager.savePersistentAttributes();  
+        await attributesManager.savePersistentAttributes(); 
 
-        const speakOutput = `Thanks ${userName}, when is your start date?`;
+        const date = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : 0;
+        let speakOutput; 
+        if (date){
+            speakOutput = `Thanks ${userName}, your start date is ${date.month} ${date.day}, ${date.year}.`
+        } else {
+            speakOutput = `Thanks ${userName}, when is your start date?`;
+        }
+
         return handlerInput.responseBuilder
             .speak(speakOutput)
             .reprompt('When is your start date?')
