@@ -28,18 +28,17 @@ const HasNameLaunchRequestHandler = {
         const sessionAttributes = attributesManager.getSessionAttributes() || {};
         
         const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
-        const year = sessionAttributes.hasOwnProperty('year') ? sessionAttributes.year : 0;
+        const startDate = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : 0;
         
         return handlerInput.requestEnvelope.request.type === 'LaunchRequest' &&
             userName &&
-            year === 0;
+            startDate === 0;
     },
     async handle(handlerInput) {
         const attributesManager = handlerInput.attributesManager;
         const sessionAttributes = attributesManager.getSessionAttributes() || {};
         const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
-        const diffDays = await getDiffToStartDate(handlerInput);
-        const speakOutput = `Welcome back, ${userName}. When is your start date?`
+        const speakOutput = `Welcome back ${userName}. When is your start date?`
         const repromtText = 'When is your start date?';
 
         return handlerInput.responseBuilder
@@ -57,22 +56,18 @@ const HasStartDateLaunchRequestHandler = {
         const sessionAttributes = attributesManager.getSessionAttributes() || {};
         
         const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
-        const year = sessionAttributes.hasOwnProperty('year') ? sessionAttributes.year : 0;
-        const month = sessionAttributes.hasOwnProperty('month') ? sessionAttributes.month : 0;
-        const day = sessionAttributes.hasOwnProperty('day') ? sessionAttributes.day : 0;
+        const startDate = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : 0;
         
         return handlerInput.requestEnvelope.request.type === 'LaunchRequest' &&
             userName &&
-            year &&
-            month &&
-            day;
+            startDate;
     },
     async handle(handlerInput) {
         const attributesManager = handlerInput.attributesManager;
         const sessionAttributes = attributesManager.getSessionAttributes() || {};
         const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
         const diffDays = await getDiffToStartDate(handlerInput);
-        const speakOutput = `Welcome back, ${userName}. It looks like there are ${diffDays} days until your start date.`
+        const speakOutput = `Welcome back ${userName}. It looks like there are ${diffDays} days until your start date.`
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -86,12 +81,9 @@ async function getDiffToStartDate(handlerInput) {
     const deviceId = handlerInput.requestEnvelope.context.System.device.deviceId;
     const attributesManager = handlerInput.attributesManager;
     const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    const date = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : {};
 
-    const year = sessionAttributes.hasOwnProperty('year') ? sessionAttributes.year : 0;
-    const month = sessionAttributes.hasOwnProperty('month') ? sessionAttributes.month : 0;
-    const day = sessionAttributes.hasOwnProperty('day') ? sessionAttributes.day : 0;
-
-    const startDate = Date.parse(`${month} ${day}, ${year}`);
+    const startDate = Date.parse(`${date.month} ${date.day}, ${date.year}`);
     
     let userTimeZone;
     try {
@@ -116,7 +108,7 @@ async function getDiffToStartDate(handlerInput) {
 
 }
 
-const CaptureUserNameIntentHandler = {
+const CaptureUserNameHandler = {
     canHandle(handlerInput) {
         return handlerInput.requestEnvelope.request.type === 'IntentRequest'
             && handlerInput.requestEnvelope.request.intent.name === 'CaptureUserNameIntent';
@@ -124,17 +116,16 @@ const CaptureUserNameIntentHandler = {
     async handle(handlerInput) {
         const userName = handlerInput.requestEnvelope.request.intent.slots.name.value;
         const attributesManager = handlerInput.attributesManager;
+        const sessionAttributes = attributesManager.getSessionAttributes() || {};
         
-        const userNameAttributes = {
-            "name": userName
-        };
-        attributesManager.setPersistentAttributes(userNameAttributes);
-        await attributesManager.savePersistentAttributes();    
-        
-        const speakOutput = `Thanks ${userName}.`;
+        sessionAttributes.name = userName;
+        attributesManager.setPersistentAttributes(sessionAttributes);
+        await attributesManager.savePersistentAttributes();  
+
+        const speakOutput = `Thanks ${userName}, when is your start date?`;
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            // .reprompt('When is your start date?')
+            .reprompt('When is your start date?')
             .getResponse();
     }
 };
@@ -150,18 +141,20 @@ const CaptureStartDateIntentHandler = {
         const day = handlerInput.requestEnvelope.request.intent.slots.day.value;
         
         const attributesManager = handlerInput.attributesManager;
+        const sessionAttributes = attributesManager.getSessionAttributes() || {};
+        const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
         
         const startDateAttributes = {
             "year": year,
             "month": month,
-            "day": day
-            
+            "day": day   
         };
-        attributesManager.setPersistentAttributes(startDateAttributes);
+        sessionAttributes.startDate = startDateAttributes;
+        
+        attributesManager.setPersistentAttributes(sessionAttributes);
         await attributesManager.savePersistentAttributes();    
         
-        const sessionAttributes = attributesManager.getSessionAttributes() || {};
-        const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
+        
         const speakOutput = `Thanks ${userName}, I'll remember that you will start on ${month} ${day} ${year}.`;
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -353,28 +346,14 @@ const SendNHORequestIntentHandler = {
     }
 };
 
-const LoadStartDateInterceptor = {
+const LoadStorageInterceptor = {
     async process(handlerInput) {
         const attributesManager = handlerInput.attributesManager;
         const sessionAttributes = await attributesManager.getPersistentAttributes() || {};
-
-        const year = sessionAttributes.hasOwnProperty('year') ? sessionAttributes.year : 0;
-        const month = sessionAttributes.hasOwnProperty('month') ? sessionAttributes.month : 0;
-        const day = sessionAttributes.hasOwnProperty('day') ? sessionAttributes.day : 0;
-
-        if (year && month && day) {
-            attributesManager.setSessionAttributes(sessionAttributes);
-        }
-    }
-}
-
-const LoadUserNameInterceptor = {
-    async process(handlerInput) {
-        const attributesManager = handlerInput.attributesManager;
-        const sessionAttributes = await attributesManager.getPersistentAttributes() || {};
-
         const name = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
-        if (name) {
+        const date = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : {};
+
+        if (name || date) {
             attributesManager.setSessionAttributes(sessionAttributes);
         }
     }
@@ -388,8 +367,8 @@ exports.handler = Alexa.SkillBuilders.custom()
         new persistenceAdapter.S3PersistenceAdapter({bucketName:process.env.S3_PERSISTENCE_BUCKET})
     )
     .addRequestHandlers(
-        HasStartDateLaunchRequestHandler,
         HasNameLaunchRequestHandler,
+        HasStartDateLaunchRequestHandler,
         LaunchRequestHandler,
         CaptureUserNameHandler,
         CaptureStartDateIntentHandler,
@@ -400,8 +379,7 @@ exports.handler = Alexa.SkillBuilders.custom()
     .addErrorHandlers(
         ErrorHandler)
     .addRequestInterceptors(
-        LoadStartDateInterceptor,
-        LoadUserNameInterceptor
+        LoadStorageInterceptor
     )
     .withApiClient(new Alexa.DefaultApiClient())
     .lambda();
