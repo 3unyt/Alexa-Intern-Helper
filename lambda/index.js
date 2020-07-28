@@ -40,9 +40,11 @@ const HasNameLaunchRequestHandler = {
         const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
         const diffDays = await getDiffToStartDate(handlerInput);
         const speakOutput = `Welcome back, ${userName}. When is your start date?`
+        const repromtText = 'When is your start date?';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
+            .reprompt(repromtText)
             .getResponse();
     }
     
@@ -114,7 +116,7 @@ async function getDiffToStartDate(handlerInput) {
 
 }
 
-const CaptureUserNameHandler = {
+const CaptureUserNameIntentHandler = {
     canHandle(handlerInput) {
         return handlerInput.requestEnvelope.request.type === 'IntentRequest'
             && handlerInput.requestEnvelope.request.intent.name === 'CaptureUserNameIntent';
@@ -366,6 +368,18 @@ const LoadStartDateInterceptor = {
     }
 }
 
+const LoadUserNameInterceptor = {
+    async process(handlerInput) {
+        const attributesManager = handlerInput.attributesManager;
+        const sessionAttributes = await attributesManager.getPersistentAttributes() || {};
+
+        const name = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
+        if (name) {
+            attributesManager.setSessionAttributes(sessionAttributes);
+        }
+    }
+}
+
 // The SkillBuilder acts as the entry point for your skill, routing all request and response
 // payloads to the handlers above. Make sure any new handlers or interceptors you've
 // defined are included below. The order matters - they're processed top to bottom.
@@ -386,7 +400,8 @@ exports.handler = Alexa.SkillBuilders.custom()
     .addErrorHandlers(
         ErrorHandler)
     .addRequestInterceptors(
-        LoadStartDateInterceptor
+        LoadStartDateInterceptor,
+        LoadUserNameInterceptor
     )
     .withApiClient(new Alexa.DefaultApiClient())
     .lambda();
