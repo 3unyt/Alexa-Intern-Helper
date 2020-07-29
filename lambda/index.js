@@ -3,8 +3,8 @@
 // session persistence, api calls, and more.
 const Alexa = require('ask-sdk-core');
 const persistenceAdapter = require('ask-sdk-s3-persistence-adapter');
-const {sendEmailNotification} = require('./emailSender');
-
+const { sendEmailNotification } = require('./emailSender');
+const { getNextTask } = require('./reminders.js');
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -28,7 +28,8 @@ const LaunchRequestHandler = {
     }
 };
 
-const HasNamesuDateLaunchRequestHandler = {
+
+const HasNameDateLaunchRequestHandler = {
     canHandle(handlerInput) {
         console.log(JSON.stringify(handlerInput.requestEnvelope.request));
         const attributesManager = handlerInput.attributesManager;
@@ -149,6 +150,51 @@ const CaptureStartDateIntentHandler = {
     }
 };
 
+/*
+ * Handles retrieving the "latest" task, in a sort of "stack" style, for the intern to complete.
+ * If the intern completed the task and lets us know, we store it and not ask the intern about that task again.
+*/
+const WhatToDoNextIntentHandler = {
+    canHandle(handlerInput) {
+        return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+            && handlerInput.requestEnvelope.request.intent.name === 'WhatToDoNextIntent';
+    },
+    async handle(handlerInput) {
+        const nextTask = JSON.stringify(await getNextTask(handlerInput, getDiffToStartDate));
+        const speakOutput = nextTask;
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt('')
+            .getResponse();
+    }
+};
+
+/*
+ * Handles user confirming that they completed a task.
+*/
+const ConfirmCompletionOfTaskIntentHandler = {
+    canHandle(handlerInput) {
+        return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+            && handlerInput.requestEnvelope.request.intent.name === 'ConfirmCompletionOfTaskIntent';
+    },
+    async handle(handlerInput) {
+        const taskType = await getNextTask(handlerInput, getDiffToStartDate, true);
+        const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
+        sessionAttributes.taskType = taskType;
+        handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
+
+        const tempPersistentAttrs = await handlerInput.attributesManager.getPersistentAttributes();
+        tempPersistentAttrs[taskType] = true;
+        handlerInput.attributesManager.setPersistentAttributes(tempPersistentAttrs);
+        await handlerInput.attributesManager.savePersistentAttributes();
+
+        return handlerInput.responseBuilder
+            .speak('Thanks for letting me know that you completed that!')
+            // .reprompt('Would you like for me to do that?')
+            .getResponse();
+    }
+};
+
 const HelpIntentHandler = {
     canHandle(handlerInput) {
         return handlerInput.requestEnvelope.request.type === 'IntentRequest'
@@ -224,108 +270,27 @@ const ErrorHandler = {
 };
 
 // Email sender handler
-const SendBackgroundCheckRequestIntentHandler = {
+const YesIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'SendBackgroundCheckRequestIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.YesIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Request receiverd for sending an email.';
+        const speakOutput = 'Request received for sending an email.';
+        
+        const attributesManager = handlerInput.attributesManager;
+        const sessionAttributes = attributesManager.getSessionAttributes() || {};
+        const isTaskOutOfDate = sessionAttributes.hasOwnProperty('isTaskOutOfDate') ? sessionAttributes.isTaskOutOfDate : false;
+        const taskType = sessionAttributes.hasOwnProperty('taskType') ? sessionAttributes.isTaskOutOfDate : "";
+        const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
+        
         const userInfo = {
-            userName: 'UserName',
+            userName: userName,
             emailAddress: 'personal_email@amazon.com'
         }
-        sendEmailNotification('BACKGROUND_CHECK_REQUEST', userInfo);
-        return handlerInput.responseBuilder
-            .speak(speakOutput)
-            .getResponse();
-    }
-};
-
-const SendImmigrationRequestIntentHandler = {
-    canHandle(handlerInput) {
-        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'SendImmigrationRequestIntent';
-    },
-    handle(handlerInput) {
-        const speakOutput = 'Request receiverd for sending an email.';
-        const userInfo = {
-            userName: 'UserName',
-            emailAddress: 'personal_email@amazon.com'
+        if (isTaskOutOfDate === true){
+            sendEmailNotification(taskType, userInfo);
         }
-        sendEmailNotification('IMMIGRATION_REQUEST', userInfo);
-        return handlerInput.responseBuilder
-            .speak(speakOutput)
-            .getResponse();
-    }
-};
-
-const SendManagerContactRequestIntentHandler = {
-    canHandle(handlerInput) {
-        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'SendManagerContactRequestIntent';
-    },
-    handle(handlerInput) {
-        const speakOutput = 'Request receiverd for sending an email.';
-        const userInfo = {
-            userName: 'UserName',
-            emailAddress: 'personal_email@amazon.com'
-        }
-        sendEmailNotification('MANAGER_CONTACT_REQUEST', userInfo);
-        return handlerInput.responseBuilder
-            .speak(speakOutput)
-            .getResponse();
-    }
-};
-
-const SendRelocationRequestIntentHandler = {
-    canHandle(handlerInput) {
-        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'SendRelocationRequestIntent';
-    },
-    handle(handlerInput) {
-        const speakOutput = 'Request receiverd for sending an email.';
-        const userInfo = {
-            userName: 'UserName',
-            emailAddress: 'personal_email@amazon.com'
-        }
-        sendEmailNotification('RELOCATION_REQUEST', userInfo);
-        return handlerInput.responseBuilder
-            .speak(speakOutput)
-            .getResponse();
-    }
-};
-
-const SendMyDocsRequestIntentHandler = {
-    canHandle(handlerInput) {
-        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'SendMyDocsRequestIntent';
-    },
-    handle(handlerInput) {
-        const speakOutput = 'Request receiverd for sending an email.';
-        const userInfo = {
-            userName: 'UserName',
-            emailAddress: 'personal_email@amazon.com'
-        }
-        sendEmailNotification('MYDOCS_REQUEST', userInfo);
-        return handlerInput.responseBuilder
-            .speak(speakOutput)
-            .getResponse();
-    }
-};
-
-const SendNHORequestIntentHandler = {
-    canHandle(handlerInput) {
-        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'SendNHORequestIntent';
-    },
-    handle(handlerInput) {
-        const speakOutput = 'Request receiverd for sending an email.';
-        const userInfo = {
-            userName: 'UserName',
-            emailAddress: 'personal_email@amazon.com'
-        }
-        sendEmailNotification('NHO_REQUEST', userInfo);
         return handlerInput.responseBuilder
             .speak(speakOutput)
             .getResponse();
@@ -355,6 +320,8 @@ exports.handler = Alexa.SkillBuilders.custom()
     .addRequestHandlers(
         HasNameDateLaunchRequestHandler,
         LaunchRequestHandler,
+        WhatToDoNextIntentHandler,
+        ConfirmCompletionOfTaskIntentHandler,
         CaptureUserNameHandler,
         CaptureStartDateIntentHandler,
         HelpIntentHandler,
