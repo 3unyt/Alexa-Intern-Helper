@@ -11,7 +11,14 @@ const LaunchRequestHandler = {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello! Welcome to Amazon Intern Helper. What is your name?';
+        const attributesManager = handlerInput.attributesManager;
+        const sessionAttributes = attributesManager.getSessionAttributes() || {};
+        const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
+
+        const speakOutput = userName
+            ? `Welcome ${userName}, when is your start date?`
+            : 'Hello! Welcome to Amazon Intern Helper. What is your name?';
+            
         const repromtText = 'When is your start date?';
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -21,35 +28,7 @@ const LaunchRequestHandler = {
     }
 };
 
-const HasNameLaunchRequestHandler = {
-    canHandle(handlerInput) {
-        console.log(JSON.stringify(handlerInput.requestEnvelope.request));
-        const attributesManager = handlerInput.attributesManager;
-        const sessionAttributes = attributesManager.getSessionAttributes() || {};
-        
-        const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
-        const startDate = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : 0;
-        
-        return handlerInput.requestEnvelope.request.type === 'LaunchRequest' &&
-            userName &&
-            startDate === 0;
-    },
-    async handle(handlerInput) {
-        const attributesManager = handlerInput.attributesManager;
-        const sessionAttributes = attributesManager.getSessionAttributes() || {};
-        const userName = sessionAttributes.hasOwnProperty('name') ? sessionAttributes.name : "";
-        const speakOutput = `Welcome back ${userName}. When is your start date?`
-        const repromtText = 'When is your start date?';
-
-        return handlerInput.responseBuilder
-            .speak(speakOutput)
-            .reprompt(repromtText)
-            .getResponse();
-    }
-    
-}
-
-const HasStartDateLaunchRequestHandler = {
+const HasNamesuDateLaunchRequestHandler = {
     canHandle(handlerInput) {
         console.log(JSON.stringify(handlerInput.requestEnvelope.request));
         const attributesManager = handlerInput.attributesManager;
@@ -374,8 +353,7 @@ exports.handler = Alexa.SkillBuilders.custom()
         new persistenceAdapter.S3PersistenceAdapter({bucketName:process.env.S3_PERSISTENCE_BUCKET})
     )
     .addRequestHandlers(
-        HasNameLaunchRequestHandler,
-        HasStartDateLaunchRequestHandler,
+        HasNameDateLaunchRequestHandler,
         LaunchRequestHandler,
         CaptureUserNameHandler,
         CaptureStartDateIntentHandler,
