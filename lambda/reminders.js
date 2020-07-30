@@ -39,7 +39,38 @@ const getNextTask = async (handlerInput, getDiffToStartDate, getKey=false) => {
     return 'You have nothing to worry about!';
 };
 
+async function getDiffToStartDate(handlerInput) {
+    const serviceClientFactory = handlerInput.serviceClientFactory;
+    const deviceId = handlerInput.requestEnvelope.context.System.device.deviceId;
+    const attributesManager = handlerInput.attributesManager;
+    const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    const date = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : {};
+
+    const startDate = Date.parse(`${date.month} ${date.day}, ${date.year}`);
+    
+    let userTimeZone;
+    try {
+        const upsServiceClient = serviceClientFactory.getUpsServiceClient();
+        userTimeZone = await upsServiceClient.getSystemTimeZone(deviceId);
+    } catch (error) {
+        if (error.name !== 'ServiceError') {
+            return handlerInput.responseBuilder.speak("There was a problem connecting to the service.").getResponse();
+        }
+        console.log('error', error.message);
+    }
+    console.log('userTimeZone', userTimeZone);
+
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    // getting the current date with the time
+    const currentDateTime = new Date(new Date().toLocaleString("en-US", { timeZone: userTimeZone }));
+    // removing the time from the date because it affects our difference calculation
+    const currentDate = new Date(currentDateTime.getFullYear(), currentDateTime.getMonth(), currentDateTime.getDate());
+    const diffDays = Math.round(Math.abs((currentDate.getTime() - startDate) / oneDay));
+    return diffDays
+
+}
 
 module.exports = Object.freeze({
-  getNextTask
+  getNextTask, getDiffToStartDate
 });

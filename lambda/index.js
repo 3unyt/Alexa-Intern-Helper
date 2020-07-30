@@ -4,7 +4,7 @@
 const Alexa = require('ask-sdk-core');
 const persistenceAdapter = require('ask-sdk-s3-persistence-adapter');
 const { sendEmailNotification } = require('./emailSender');
-const { getNextTask } = require('./reminders.js');
+const { getNextTask, getDiffToStartDate } = require('./reminders.js');
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -51,42 +51,11 @@ const HasNameDateLaunchRequestHandler = {
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
+            .reprompt('')
             .getResponse();
     }
 };
 
-
-async function getDiffToStartDate(handlerInput) {
-    const serviceClientFactory = handlerInput.serviceClientFactory;
-    const deviceId = handlerInput.requestEnvelope.context.System.device.deviceId;
-    const attributesManager = handlerInput.attributesManager;
-    const sessionAttributes = attributesManager.getSessionAttributes() || {};
-    const date = sessionAttributes.hasOwnProperty('startDate') ? sessionAttributes.startDate : {};
-
-    const startDate = Date.parse(`${date.month} ${date.day}, ${date.year}`);
-    
-    let userTimeZone;
-    try {
-        const upsServiceClient = serviceClientFactory.getUpsServiceClient();
-        userTimeZone = await upsServiceClient.getSystemTimeZone(deviceId);
-    } catch (error) {
-        if (error.name !== 'ServiceError') {
-            return handlerInput.responseBuilder.speak("There was a problem connecting to the service.").getResponse();
-        }
-        console.log('error', error.message);
-    }
-    console.log('userTimeZone', userTimeZone);
-
-    const oneDay = 24 * 60 * 60 * 1000;
-
-    // getting the current date with the time
-    const currentDateTime = new Date(new Date().toLocaleString("en-US", { timeZone: userTimeZone }));
-    // removing the time from the date because it affects our difference calculation
-    const currentDate = new Date(currentDateTime.getFullYear(), currentDateTime.getMonth(), currentDateTime.getDate());
-    const diffDays = Math.round(Math.abs((currentDate.getTime() - startDate) / oneDay));
-    return diffDays
-
-}
 
 const CaptureUserNameHandler = {
     canHandle(handlerInput) {
@@ -156,15 +125,30 @@ const CaptureStartDateIntentHandler = {
 */
 const WhatToDoNextIntentHandler = {
     canHandle(handlerInput) {
-        return handlerInput.requestEnvelope.request.type === 'IntentRequest'
-            && handlerInput.requestEnvelope.request.intent.name === 'WhatToDoNextIntent';
+        const request = handlerInput.requestEnvelope.request;
+        return request.type === 'IntentRequest'
+            && request.intent.name === 'WhatToDoNextIntent';
+            
     },
     async handle(handlerInput) {
-        const nextTask = JSON.stringify(await getNextTask(handlerInput, getDiffToStartDate));
-        const speakOutput = nextTask;
+        const currentIntent = handlerInput.requestEnvelope.request.intent;       
+        // const nextTask = JSON.stringify(await getNextTask(handlerInput, getDiffToStartDate));
+        const nextTask = "managerInfo";
+        const speakOutput = "You should be able to receive manager information by now, have you done that?";
+
+        const attributesManager = handlerInput.attributesManager;
+        const sessionAttributes = attributesManager.getSessionAttributes() || {};
+        sessionAttributes.taskType = nextTask;
+        attributesManager.setSessionAttributes(sessionAttributes);
+        attributesManager.setSessionAttributes(sessionAttributes)
+
         return handlerInput.responseBuilder
+            .addDelegateDirective({
+                name: 'ConfirmCompletionOfTaskIntent',
+                confirmationStatus: 'NONE',
+                slots: {}
+            })
             .speak(speakOutput)
-            .reprompt('')
             .getResponse();
     }
 };
@@ -174,23 +158,30 @@ const WhatToDoNextIntentHandler = {
 */
 const ConfirmCompletionOfTaskIntentHandler = {
     canHandle(handlerInput) {
-        return handlerInput.requestEnvelope.request.type === 'IntentRequest'
-            && handlerInput.requestEnvelope.request.intent.name === 'ConfirmCompletionOfTaskIntent';
+        const request = handlerInput.requestEnvelope.request;
+        return request.type === 'IntentRequest'
+            && request.intent.name === 'ConfirmCompletionOfTaskIntent';
     },
     async handle(handlerInput) {
-        const taskType = await getNextTask(handlerInput, getDiffToStartDate, true);
+        const currentIntent = handlerInput.requestEnvelope.request.intent;
         const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
-        sessionAttributes.taskType = taskType;
-        handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
+        const taskType = sessionAttributes.taskType;
+        
+        const isCompleted = handlerInput.requestEnvelope.request.intent.slots.isCompleted.value;
+        sessionAttributes.isTaskOutOfDate = isCompleted === 'no';
 
-        const tempPersistentAttrs = await handlerInput.attributesManager.getPersistentAttributes();
-        tempPersistentAttrs[taskType] = true;
-        handlerInput.attributesManager.setPersistentAttributes(tempPersistentAttrs);
-        await handlerInput.attributesManager.savePersistentAttributes();
+        const speakOutput = sessionAttributes.isTaskOutOfDate
+                ? 'Do you need me to reach amazon student program on your behalf?'
+                : 'Well done!'
+
+        // const tempPersistentAttrs = await handlerInput.attributesManager.getPersistentAttributes();
+        // tempPersistentAttrs[taskType] = true;
+        // handlerInput.attributesManager.setPersistentAttributes(tempPersistentAttrs);
+        // await handlerInput.attributesManager.savePersistentAttributes();
 
         return handlerInput.responseBuilder
-            .speak('Thanks for letting me know that you completed that!')
-            // .reprompt('Would you like for me to do that?')
+            .speak(speakOutput)
+            // .reprompt('')
             .getResponse();
     }
 };
