@@ -139,8 +139,8 @@ const WhatToDoNextIntentHandler = {
         const attributesManager = handlerInput.attributesManager;
         const sessionAttributes = attributesManager.getSessionAttributes() || {};
         sessionAttributes.taskType = nextTask;
-        attributesManager.setSessionAttributes(sessionAttributes);
-        attributesManager.setSessionAttributes(sessionAttributes)
+        attributesManager.setPersistentAttributes(sessionAttributes);
+        await attributesManager.savePersistentAttributes();
 
         return handlerInput.responseBuilder
             .addDelegateDirective({
