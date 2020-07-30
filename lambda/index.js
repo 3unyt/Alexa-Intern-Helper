@@ -29,10 +29,10 @@ const LaunchRequestHandler = {
             ? `Welcome ${userName}, when is your start date?`
             : 'Hello! Welcome to Amazon Intern Helper. What is your name?';
             
-        const repromtText = 'When is your start date?';
+        const repromptText = 'I\'m excited to hear that you\'ll be starting at Amazon. When is your start date?';
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt(repromtText)
+            .reprompt(repromptText)
             .getResponse();
         
     }
@@ -179,11 +179,8 @@ const WhatToDoNextIntentHandler = {
             
     },
     async handle(handlerInput) {
-        const currentIntent = handlerInput.requestEnvelope.request.intent;       
-        // const [nextTask, speakOutput] = JSON.stringify(await getNextTask(handlerInput));
-        const nextTask = "managerInfo";
-        const speakOutput = "You should be able to receive manager information by now, have you done that?";
-        
+        const [nextTask, speakOutput] = await getNextTask(handlerInput);
+
         if (nextTask !== 'NONE') {
             const attributesManager = handlerInput.attributesManager;
             const sessionAttributes = attributesManager.getSessionAttributes() || {};
@@ -226,9 +223,16 @@ const YesIntentHandler = {
                     userName: userName,
                     emailAddress: 'personal_email@amazon.com'
                 }
-        
-                speakOutput = `OK ${userName}, I've sent an email to amazon student program.`;
-                sessionAttributes.sessionState = "default";
+                const emailResponse = sendEmailNotification(task, userInfo);
+                if (emailResponse.error) {
+                    // error, don't save that the task is completed, just let the user know that there was an email-related error
+                    speakOutput = `Sorry, ${userName}, there was a problem with sending the email. Please try again later!`;
+                } else {
+                    speakOutput = `Alright, ${userName}, I've sent them an email! Hopefully you hear about it soon.`;
+                    sessionAttributes[task] = true; // nmmaini added
+                }
+
+                sessionAttributes.sessionState = "default"; // should this only happen when the email sends successfully?
                 attributesManager.setPersistentAttributes(sessionAttributes);
                 await attributesManager.savePersistentAttributes();
                 break
