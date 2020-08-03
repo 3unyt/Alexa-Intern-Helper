@@ -76,6 +76,24 @@ const EmailIntentHandler = {
   },
 }
 
+const getEmail = async (handlerInput) => {
+    const response = {error: true, message: null, email: null};
+    const { serviceClientFactory, responseBuilder } = handlerInput;
+    try {
+      const upsServiceClient = serviceClientFactory.getUpsServiceClient();
+      const profileEmail = await upsServiceClient.getProfileEmail();
+      if (!profileEmail) {
+        response.message = `It looks like you don't have an email set. You can set your email from the Alexa companion app.`;
+        return response;
+      } else response.error = false;
+      response.email = profileEmail;
+      return response;
+    } catch (error) {
+      if (error.statusCode === 403) response.message = messages.NOTIFY_MISSING_PERMISSIONS;
+      return response;
+    }
+}
+
 
 const HasNameDateLaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -210,7 +228,7 @@ const YesIntentHandler = {
         let speakOutput;
         switch(sessionAttributes.sessionState) {
             case "check_task_completed":
-                speakOutput = 'Well done!';
+                speakOutput = 'Awesome!';
                 sessionAttributes.sessionState = "default";
                 sessionAttributes[task] = true;
                 attributesManager.setPersistentAttributes(sessionAttributes);
@@ -219,9 +237,26 @@ const YesIntentHandler = {
             
             case "send_email":
                 // todo: sendEmailNotification
+                const email = await getEmail(handlerInput);
+                if (email.error) {
+                    speakOutput = "Patelliam Quan"
+                    return handlerInput.responseBuilder
+                        .speak(speakOutput)
+                        // .reprompt('')
+                        .getResponse();
+                    return EmailIntentHandler.handle(handlerInput);
+                    // if (email.message === messages.NOTIFY_MISSING_PERMISSIONS) {
+                    //     return handlerInput.responseBuilder
+                    //         .speak(messages.NOTIFY_MISSING_PERMISSIONS)
+                    //         .withAskForPermissionsConsentCard([EMAIL_PERMISSION])
+                    //         .getResponse();
+                    // }
+                    speakOutput = email.message; // break out of this function and tell the user that there's an issue with email
+                    break
+                }
                 const userInfo = {
                     userName: userName,
-                    emailAddress: 'personal_email@amazon.com'
+                    emailAddress: email.email
                 }
                 const emailResponse = sendEmailNotification(task, userInfo);
                 if (emailResponse.error) {
