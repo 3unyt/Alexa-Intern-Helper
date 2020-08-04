@@ -59,7 +59,7 @@ const EmailIntentHandler = {
       return responseBuilder
                       .speak(speechResponse)
                       .withSimpleCard(APP_NAME, speechResponse)
-                      .reprompt('')
+                      .reprompt(speechResponse)
                       .getResponse();
     } catch (error) {
       console.log(JSON.stringify(error));
@@ -117,7 +117,7 @@ const HasNameDateLaunchRequestHandler = {
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt('')
+            .reprompt(speakOutput)
             .getResponse();
     }
 };
@@ -180,7 +180,7 @@ const CaptureStartDateIntentHandler = {
         const speakOutput = `Thanks ${userName}, I'll remember that you will start on ${month} ${day} ${year}.`;
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt('')
+            .reprompt(speakOutput)
             .getResponse();
     }
 };
@@ -209,7 +209,7 @@ const WhatToDoNextIntentHandler = {
         }
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt('')
+            .reprompt(speakOutput)
             .getResponse();
     }
 };
@@ -236,23 +236,9 @@ const YesIntentHandler = {
                 break;
             
             case "send_email":
-                // todo: sendEmailNotification
                 const email = await getEmail(handlerInput);
                 if (email.error) {
-                    speakOutput = "Patelliam Quan"
-                    return handlerInput.responseBuilder
-                        .speak(speakOutput)
-                        // .reprompt('')
-                        .getResponse();
                     return EmailIntentHandler.handle(handlerInput);
-                    // if (email.message === messages.NOTIFY_MISSING_PERMISSIONS) {
-                    //     return handlerInput.responseBuilder
-                    //         .speak(messages.NOTIFY_MISSING_PERMISSIONS)
-                    //         .withAskForPermissionsConsentCard([EMAIL_PERMISSION])
-                    //         .getResponse();
-                    // }
-                    speakOutput = email.message; // break out of this function and tell the user that there's an issue with email
-                    break
                 }
                 const userInfo = {
                     userName: userName,
@@ -264,12 +250,11 @@ const YesIntentHandler = {
                     speakOutput = `Sorry, ${userName}, there was a problem with sending the email. Please try again later!`;
                 } else {
                     speakOutput = `Alright, ${userName}, I've sent them an email! Hopefully you hear about it soon.`;
-                    sessionAttributes[task] = true; // nmmaini added
+                    sessionAttributes[task] = true;
+                    sessionAttributes.sessionState = "default";
+                    attributesManager.setPersistentAttributes(sessionAttributes);
+                    await attributesManager.savePersistentAttributes();
                 }
-
-                sessionAttributes.sessionState = "default"; // should this only happen when the email sends successfully?
-                attributesManager.setPersistentAttributes(sessionAttributes);
-                await attributesManager.savePersistentAttributes();
                 break
             
             default:
@@ -278,7 +263,7 @@ const YesIntentHandler = {
         }
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt('')
+            .reprompt(speakOutput)
             .getResponse();
 
     }
@@ -297,7 +282,7 @@ const NoIntentHandler = {
         let speakOutput;
         switch(sessionAttributes.sessionState) {
             case "check_task_completed":
-                speakOutput = 'OK. Do you want me to send an email?';
+                speakOutput = 'Ok. I can send an email to Amazon for you to help you with this. Would you like that?';
                 sessionAttributes.sessionState = "send_email";
                 attributesManager.setPersistentAttributes(sessionAttributes);
                 await attributesManager.savePersistentAttributes();
@@ -313,7 +298,7 @@ const NoIntentHandler = {
         }
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt('')
+            .reprompt(speakOutput)
             .getResponse();
     }
 

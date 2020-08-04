@@ -1,7 +1,7 @@
 const EMAIL_TYPES = [
     ['BACKGROUND_CHECK_REQUEST', 45, 'By now, your background check should have been started. Did you receive a notice about it starting?'],
-    ['IMMIGRATION_REQUEST', 30, 'You should have had a CPT letter uploaded to your candiate portal, if that applies to you. \
-        If you already dealt with this or if this doesnt apply to you, please say Yes.'],
+    ['IMMIGRATION_REQUEST', 30, 'You should have had a CPT letter uploaded to your candidate portal, if that applies to you. \
+        If you already dealt with this or if this doesn\'t apply to you, please say Yes.'],
     ['MANAGER_CONTACT_REQUEST', 30, 'You should have been introduced to your manager and or team. Have you?'],
     ['RELOCATION_REQUEST', 30, 'You should have received a note from Graebel in-regards to relocation. Have you?'],
     ['MYDOCS_REQUEST', 14, 'By now, you should have received a MyDocs email. Have you already received it?'],
@@ -67,7 +67,7 @@ async function getDiffToStartDate(handlerInput) {
     const currentDateTime = new Date(new Date().toLocaleString("en-US", { timeZone: userTimeZone }));
     // removing the time from the date because it affects our difference calculation
     const currentDate = new Date(currentDateTime.getFullYear(), currentDateTime.getMonth(), currentDateTime.getDate());
-    const diffDays = Math.round(Math.abs((currentDate.getTime() - startDate) / oneDay));
+    const diffDays = Math.round((startDate - currentDate.getTime()) / oneDay);
     return diffDays
 
 }

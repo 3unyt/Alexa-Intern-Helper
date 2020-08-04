@@ -13,21 +13,25 @@ const transporter = nodemailer.createTransport({
 });
 
 function sendEmailNotification(notificationType, userInfo){
+  const response = {error: false, message: null};
 
   const mailOptions = {
     from: 'zhzhutesting@gmail.com',
     to: notificationStrings[`STRING_${notificationType}`].Receiver,
     subject: notificationStrings[`STRING_${notificationType}`].Subject,
     text: notificationStrings[`STRING_${notificationType}`].Body
-    .replace(/{{userName}}/g, userInfo.userName)
+    .replace(/{{Name}}/g, userInfo.userName)
     .replace(/{{emailAddress}}/g, userInfo.emailAddress)
   };
 
   transporter.sendMail(mailOptions, function(error, info){
     if (error){
       console.log(error);
+      response.error = true;
+      response.message = error;
     }else{
       console.log('Email sent:' + info.response);
     }
   });
+  return response;
 }
